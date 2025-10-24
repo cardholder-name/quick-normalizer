@@ -1,0 +1,59 @@
+# Compiled binaries
+*.exe
+*.obj
+*.o
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+
+# Build artifacts
+*.ilk
+*.pdb
+*.exp
+*.idb
+*.res
+*.manifest
+*.suo
+*.user
+*.ncb
+*.aps
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Visual Studio
+.vs/
+*.vcxproj.filters
+*.vcxproj.user
+ipch/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+*.swp
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Test files and folders (for development testing)
+test-*.wav
+test-watch-input/
+test-watch-output/
+
+# Test files (you may want to keep some)
+test*.wav
+*.wav.bak
