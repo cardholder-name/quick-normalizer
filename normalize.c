@@ -1018,18 +1018,16 @@ void init_k_weighting(k_weighting *kw, unsigned long samplerate) {
 double apply_k_weighting(k_weighting *kw, double sample) {
 	double out;
 	
-	// Apply high-shelf filter
-	out = kw->shelf.b0 * sample + kw->shelf.b1 * kw->shelf.z1 + kw->shelf.b2 * kw->shelf.z2
-		- kw->shelf.a1 * kw->shelf.z1 - kw->shelf.a2 * kw->shelf.z2;
-	kw->shelf.z2 = kw->shelf.z1;
-	kw->shelf.z1 = sample;
+	// Apply high-shelf filter (Direct Form II Transposed)
+	out = kw->shelf.b0 * sample + kw->shelf.z1;
+	kw->shelf.z1 = kw->shelf.b1 * sample - kw->shelf.a1 * out + kw->shelf.z2;
+	kw->shelf.z2 = kw->shelf.b2 * sample - kw->shelf.a2 * out;
 	sample = out;
 	
-	// Apply high-pass filter
-	out = kw->highpass.b0 * sample + kw->highpass.b1 * kw->highpass.z1 + kw->highpass.b2 * kw->highpass.z2
-		- kw->highpass.a1 * kw->highpass.z1 - kw->highpass.a2 * kw->highpass.z2;
-	kw->highpass.z2 = kw->highpass.z1;
-	kw->highpass.z1 = sample;
+	// Apply high-pass filter (Direct Form II Transposed)
+	out = kw->highpass.b0 * sample + kw->highpass.z1;
+	kw->highpass.z1 = kw->highpass.b1 * sample - kw->highpass.a1 * out + kw->highpass.z2;
+	kw->highpass.z2 = kw->highpass.b2 * sample - kw->highpass.a2 * out;
 	
 	return out;
 }
@@ -1039,15 +1037,16 @@ double calculate_lufs8(void) {
 	unsigned long block_samples, hop_samples, max_blocks, block_count = 0;
 	unsigned long i, j, readn, ndone = 0;
 	double *block_loudness;
-	k_weighting kw;
+	k_weighting kw_left, kw_right;
 	int npercent, lastn = -1;
 	double integrated_loudness, gated_loudness;
 	unsigned long blocks_to_use, valid_blocks;
+	unsigned short nchannels = pwf.nchannels;
 	
-	// Calculate block parameters (400ms blocks, 100ms hop)
+	// Calculate block parameters (400ms blocks, 100ms hop) - per channel
 	block_samples = (unsigned long)(pwf.samplerate * 0.4);
 	hop_samples = (unsigned long)(pwf.samplerate * 0.1);
-	max_blocks = (pwf.ndatabytes / (hop_samples)) + 1;
+	max_blocks = (pwf.ndatabytes / (hop_samples * nchannels)) + 1;
 	
 	// Allocate memory for block loudness values
 	block_loudness = (double*)VirtualAlloc(NULL, sizeof(double) * max_blocks, MEM_COMMIT, PAGE_READWRITE);
@@ -1057,13 +1056,20 @@ double calculate_lufs8(void) {
 		return -70.0;
 	}
 	
-	// Initialize K-weighting filter
-	init_k_weighting(&kw, pwf.samplerate);
+	// Initialize K-weighting filters (one per channel)
+	init_k_weighting(&kw_left, pwf.samplerate);
+	if (nchannels == 2)
+		init_k_weighting(&kw_right, pwf.samplerate);
 	
-	// Allocate sliding window buffer
-	double *window = (double*)VirtualAlloc(NULL, sizeof(double) * block_samples, MEM_COMMIT, PAGE_READWRITE);
-	if (window == NULL) {
+	// Allocate sliding window buffers (one per channel)
+	double *window_left = (double*)VirtualAlloc(NULL, sizeof(double) * block_samples, MEM_COMMIT, PAGE_READWRITE);
+	double *window_right = (nchannels == 2) ? 
+		(double*)VirtualAlloc(NULL, sizeof(double) * block_samples, MEM_COMMIT, PAGE_READWRITE) : NULL;
+	
+	if (window_left == NULL || (nchannels == 2 && window_right == NULL)) {
 		VirtualFree(block_loudness, 0, MEM_RELEASE);
+		if (window_left) VirtualFree(window_left, 0, MEM_RELEASE);
+		if (window_right) VirtualFree(window_right, 0, MEM_RELEASE);
 		if (!quiet)
 			fprintf(stderr, "Cannot allocate memory for LUFS calculation.\n");
 		return -70.0;
@@ -1080,32 +1086,53 @@ double calculate_lufs8(void) {
 		if (!quiet)
 			fprintf(stderr, "%s\n", pcmwav_error);
 		VirtualFree(block_loudness, 0, MEM_RELEASE);
-		VirtualFree(window, 0, MEM_RELEASE);
+		VirtualFree(window_left, 0, MEM_RELEASE);
+		if (window_right) VirtualFree(window_right, 0, MEM_RELEASE);
 		return -70.0;
 	}
 	
 	unsigned long buf_pos = 0;
-	unsigned long samples_until_block = block_samples;
 	
 	while (readn > 0 || samples_in_window >= block_samples) {
-		// Fill window with samples
+		// Fill window with samples (interleaved for stereo)
 		while (buf_pos < readn && samples_in_window < block_samples) {
-			signed char sample = buf8[buf_pos++] ^ 0x80;
-			double norm_sample = sample / 128.0;
-			window[window_pos++] = apply_k_weighting(&kw, norm_sample);
+			// Left channel (or mono)
+			signed char sample_left = buf8[buf_pos++] ^ 0x80;
+			double norm_left = sample_left / 128.0;
+			window_left[window_pos] = apply_k_weighting(&kw_left, norm_left);
+			
+			// Right channel (if stereo)
+			if (nchannels == 2) {
+				signed char sample_right = buf8[buf_pos++] ^ 0x80;
+				double norm_right = sample_right / 128.0;
+				window_right[window_pos] = apply_k_weighting(&kw_right, norm_right);
+			}
+			
+			window_pos++;
 			samples_in_window++;
 			if (window_pos >= block_samples) window_pos = 0;
 		}
 		
 		// Process complete block
 		if (samples_in_window >= block_samples) {
-			double sum_squares = 0.0;
+			double sum_squares_left = 0.0, sum_squares_right = 0.0;
+			
+			// Calculate mean square per channel
 			for (i = 0; i < block_samples; i++) {
 				unsigned long idx = (window_pos + i) % block_samples;
-				sum_squares += window[idx] * window[idx];
+				sum_squares_left += window_left[idx] * window_left[idx];
+				if (nchannels == 2)
+					sum_squares_right += window_right[idx] * window_right[idx];
 			}
 			
-			double mean_square = sum_squares / block_samples;
+			// Average across channels (ITU-R BS.1770-4)
+			double mean_square;
+			if (nchannels == 2) {
+				mean_square = (sum_squares_left + sum_squares_right) / (2.0 * block_samples);
+			} else {
+				mean_square = sum_squares_left / block_samples;
+			}
+			
 			if (mean_square > 0.0) {
 				block_loudness[block_count++] = -0.691 + 10.0 * log10(mean_square);
 			} else {
@@ -1144,7 +1171,8 @@ double calculate_lufs8(void) {
 					if (!quiet)
 						fprintf(stderr, "%s\n", pcmwav_error);
 					VirtualFree(block_loudness, 0, MEM_RELEASE);
-					VirtualFree(window, 0, MEM_RELEASE);
+					VirtualFree(window_left, 0, MEM_RELEASE);
+					if (window_right) VirtualFree(window_right, 0, MEM_RELEASE);
 					return -70.0;
 				}
 				buf_pos = 0;
@@ -1155,7 +1183,8 @@ double calculate_lufs8(void) {
 			break;
 	}
 	
-	VirtualFree(window, 0, MEM_RELEASE);
+	VirtualFree(window_left, 0, MEM_RELEASE);
+	if (window_right) VirtualFree(window_right, 0, MEM_RELEASE);
 	
 	if (block_count == 0) {
 		VirtualFree(block_loudness, 0, MEM_RELEASE);
@@ -1217,15 +1246,16 @@ double calculate_lufs16(void) {
 	unsigned long block_samples, hop_samples, max_blocks, block_count = 0;
 	unsigned long i, j, readn, ndone = 0;
 	double *block_loudness;
-	k_weighting kw;
+	k_weighting kw_left, kw_right;
 	int npercent, lastn = -1;
 	double integrated_loudness, gated_loudness;
 	unsigned long blocks_to_use, valid_blocks;
+	unsigned short nchannels = pwf.nchannels;
 	
-	// Calculate block parameters (400ms blocks, 100ms hop)
+	// Calculate block parameters (400ms blocks, 100ms hop) - per channel
 	block_samples = (unsigned long)(pwf.samplerate * 0.4);
 	hop_samples = (unsigned long)(pwf.samplerate * 0.1);
-	max_blocks = (pwf.ndatabytes / (hop_samples * 2)) + 1;
+	max_blocks = (pwf.ndatabytes / (hop_samples * 2 * nchannels)) + 1;
 	
 	// Allocate memory for block loudness values
 	block_loudness = (double*)VirtualAlloc(NULL, sizeof(double) * max_blocks, MEM_COMMIT, PAGE_READWRITE);
@@ -1235,13 +1265,20 @@ double calculate_lufs16(void) {
 		return -70.0;
 	}
 	
-	// Initialize K-weighting filter
-	init_k_weighting(&kw, pwf.samplerate);
+	// Initialize K-weighting filters (one per channel)
+	init_k_weighting(&kw_left, pwf.samplerate);
+	if (nchannels == 2)
+		init_k_weighting(&kw_right, pwf.samplerate);
 	
-	// Allocate sliding window buffer
-	double *window = (double*)VirtualAlloc(NULL, sizeof(double) * block_samples, MEM_COMMIT, PAGE_READWRITE);
-	if (window == NULL) {
+	// Allocate sliding window buffers (one per channel)
+	double *window_left = (double*)VirtualAlloc(NULL, sizeof(double) * block_samples, MEM_COMMIT, PAGE_READWRITE);
+	double *window_right = (nchannels == 2) ? 
+		(double*)VirtualAlloc(NULL, sizeof(double) * block_samples, MEM_COMMIT, PAGE_READWRITE) : NULL;
+	
+	if (window_left == NULL || (nchannels == 2 && window_right == NULL)) {
 		VirtualFree(block_loudness, 0, MEM_RELEASE);
+		if (window_left) VirtualFree(window_left, 0, MEM_RELEASE);
+		if (window_right) VirtualFree(window_right, 0, MEM_RELEASE);
 		if (!quiet)
 			fprintf(stderr, "Cannot allocate memory for LUFS calculation.\n");
 		return -70.0;
@@ -1258,32 +1295,53 @@ double calculate_lufs16(void) {
 		if (!quiet)
 			fprintf(stderr, "%s\n", pcmwav_error);
 		VirtualFree(block_loudness, 0, MEM_RELEASE);
-		VirtualFree(window, 0, MEM_RELEASE);
+		VirtualFree(window_left, 0, MEM_RELEASE);
+		if (window_right) VirtualFree(window_right, 0, MEM_RELEASE);
 		return -70.0;
 	}
 	
 	unsigned long buf_pos = 0;
-	unsigned long samples_until_block = block_samples;
 	
 	while (readn > 0 || samples_in_window >= block_samples) {
-		// Fill window with samples
+		// Fill window with samples (interleaved for stereo)
 		while (buf_pos < (readn >> 1) && samples_in_window < block_samples) {
-			signed short sample = buf16[buf_pos++];
-			double norm_sample = sample / 32768.0;
-			window[window_pos++] = apply_k_weighting(&kw, norm_sample);
+			// Left channel (or mono)
+			signed short sample_left = buf16[buf_pos++];
+			double norm_left = sample_left / 32768.0;
+			window_left[window_pos] = apply_k_weighting(&kw_left, norm_left);
+			
+			// Right channel (if stereo)
+			if (nchannels == 2) {
+				signed short sample_right = buf16[buf_pos++];
+				double norm_right = sample_right / 32768.0;
+				window_right[window_pos] = apply_k_weighting(&kw_right, norm_right);
+			}
+			
+			window_pos++;
 			samples_in_window++;
 			if (window_pos >= block_samples) window_pos = 0;
 		}
 		
 		// Process complete block
 		if (samples_in_window >= block_samples) {
-			double sum_squares = 0.0;
+			double sum_squares_left = 0.0, sum_squares_right = 0.0;
+			
+			// Calculate mean square per channel
 			for (i = 0; i < block_samples; i++) {
 				unsigned long idx = (window_pos + i) % block_samples;
-				sum_squares += window[idx] * window[idx];
+				sum_squares_left += window_left[idx] * window_left[idx];
+				if (nchannels == 2)
+					sum_squares_right += window_right[idx] * window_right[idx];
 			}
 			
-			double mean_square = sum_squares / block_samples;
+			// Average across channels (ITU-R BS.1770-4)
+			double mean_square;
+			if (nchannels == 2) {
+				mean_square = (sum_squares_left + sum_squares_right) / (2.0 * block_samples);
+			} else {
+				mean_square = sum_squares_left / block_samples;
+			}
+			
 			if (mean_square > 0.0) {
 				block_loudness[block_count++] = -0.691 + 10.0 * log10(mean_square);
 			} else {
@@ -1322,7 +1380,8 @@ double calculate_lufs16(void) {
 					if (!quiet)
 						fprintf(stderr, "%s\n", pcmwav_error);
 					VirtualFree(block_loudness, 0, MEM_RELEASE);
-					VirtualFree(window, 0, MEM_RELEASE);
+					VirtualFree(window_left, 0, MEM_RELEASE);
+					if (window_right) VirtualFree(window_right, 0, MEM_RELEASE);
 					return -70.0;
 				}
 				buf_pos = 0;
@@ -1333,7 +1392,8 @@ double calculate_lufs16(void) {
 			break;
 	}
 	
-	VirtualFree(window, 0, MEM_RELEASE);
+	VirtualFree(window_left, 0, MEM_RELEASE);
+	if (window_right) VirtualFree(window_right, 0, MEM_RELEASE);
 	
 	if (block_count == 0) {
 		VirtualFree(block_loudness, 0, MEM_RELEASE);

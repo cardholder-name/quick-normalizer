@@ -3,6 +3,35 @@
 ## Overview
 Successfully implemented ITU-R BS.1770-4 compliant LUFS (Loudness Units relative to Full Scale) normalization for the normalize audio tool, with advanced percentile gating support.
 
+**Note**: Implementation was corrected in October 2025 to fix biquad filter state handling and proper stereo channel processing.
+
+## Recent Fixes (October 2025)
+
+### 1. Biquad Filter State Correction
+**Problem**: Filter states were storing input samples instead of intermediate values, causing incorrect K-weighting.
+
+**Fix**: Changed to Direct Form II Transposed implementation:
+```c
+// Correct implementation
+out = b0 * sample + z1;
+z1 = b1 * sample - a1 * out + z2;
+z2 = b2 * sample - a2 * out;
+```
+
+### 2. Proper Stereo Channel Handling
+**Problem**: Stereo files were processed as a single stream, not per ITU-R BS.1770-4 spec.
+
+**Fix**: Now processes each channel independently:
+- Separate K-weighting filters for left and right channels
+- Per-channel mean square calculation
+- Proper averaging across channels: `(L_ms + R_ms) / 2`
+
+### 3. Known Limitations
+- **No true peak detection**: Uses simple sample peak instead of 4x oversampled true peak
+  - Impact: May allow clipping on some DACs (~0.5dB error possible)
+  - Mitigation: Use `-m 98` or `-m 99` for safety margin
+- **Stereo only**: No support for 5.1/7.1 surround sound
+
 ## Files Modified
 
 ### normalize.c
