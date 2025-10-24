@@ -6,6 +6,8 @@
 
 A high-performance Windows audio normalization tool with modern **LUFS (Loudness Units relative to Full Scale)** support, perfect for preparing audio for streaming platforms, podcasts, and broadcast.
 
+So your stuff doesn't sound shit.
+
 ## ✨ Features
 
 ### 🎯 LUFS Normalization (NEW!)
