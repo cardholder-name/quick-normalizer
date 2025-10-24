@@ -1,5 +1,5 @@
 /*
-	normalize.c - main source file for PCM WAV normalizer - v1.0.0
+	normalize.c - main source file for PCM WAV normalizer - v1.0.1
 	
 	Original normalize v0.253:
 	(c) 2000-2004 Manuel Kasper <mk@neon1.net>
@@ -37,7 +37,7 @@
 #include <time.h>
 #include "pcmwav.h"
 
-#define COPYRIGHT_NOTICE	"normalize v1.0.0 (c) 2000-2004 Manuel Kasper <mk@neon1.net>.\n" \
+#define COPYRIGHT_NOTICE	"normalize v1.0.1 (c) 2000-2004 Manuel Kasper <mk@neon1.net>.\n" \
 							"All rights reserved.\n" \
 							"smartpeak code by Lapo Luchini <lapo@lapo.it>.\n" \
 							"LUFS support and watch mode added 2025 by Cam St Clair with Claude (Anthropic)."

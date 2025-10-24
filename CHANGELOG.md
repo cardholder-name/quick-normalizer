@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.0.1] - 2025-10-24
+
+### Fixed - LUFS Critical Bugs
+- **Fixed biquad filter state handling**: Filter states were incorrectly storing input samples instead of intermediate values, causing inaccurate K-weighting
+- **Fixed stereo channel processing**: Now properly separates and processes left/right channels independently per ITU-R BS.1770-4 specification
+- Each channel now has its own K-weighting filter instance
+- Mean squares are calculated per-channel and properly averaged
+- LUFS measurements are now accurate for both mono and stereo files (~3dB more accurate for stereo)
+
+### Changed
+- Implemented Direct Form II Transposed biquad filter structure for correct state handling
+- Updated `docs/LUFS_IMPLEMENTATION.md` with fix details and known limitations
+
 ## [1.0.0] - 2025-10-24
 
 ### Added - Watch Mode (2025)
