@@ -32,7 +32,20 @@ A high-performance Windows audio normalization tool with modern **LUFS (Loudness
 - 🚀 Zero runtime dependencies
 - ⚙️ Optimized DSP with lookup tables
 - 📦 Batch processing with wildcard support
-- 🎵 8-bit and 16-bit PCM WAV support
+
+## 📁 Format Compatibility
+
+### Supported Formats
+- **PCM WAV files** (uncompressed audio)
+- **8-bit PCM**: Unsigned samples (0-255)
+- **16-bit PCM**: Signed samples (-32768 to 32767)
+- **Mono and Stereo**: Both channel configurations supported
+- **Any sample rate**: 8kHz, 16kHz, 44.1kHz, 48kHz, 96kHz, etc.
+
+### Not Supported
+- ❌ Compressed formats (MP3, AAC, FLAC, OGG, etc.)
+- ❌ 24-bit or 32-bit PCM WAV
+- ❌ Multi-channel audio (5.1, 7.1 surround)
 
 ## 🚀 Quick Start
 
@@ -200,14 +213,8 @@ See [COPYING.txt](COPYING.txt) for full license text.
 - **Manuel Kasper** - Original normalize tool (2000-2004)
 - **Lapo Luchini** - SmartPeak algorithm
 - **Cam St Clair** - LUFS normalization and watch mode (2025)
-- **Claude (Anthropic)** - AI assistance for implementation
+- **Claude (Anthropic)** - AI assistance for implementation, I'm always learning
 - **ITU-R BS.1770-4** - LUFS specification
-- Community contributors and testers
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/cardholder-name/quick-normalizer/issues) for bug reports and feature requests
-- **Documentation**: Technical details available in `/docs` folder
 
 ---
 
