@@ -3,6 +3,7 @@
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)]()
 [![Language: C](https://img.shields.io/badge/language-C-brightgreen.svg)]()
+[![Latest Release](https://img.shields.io/github/v/release/cardholder-name/quick-normalizer)](https://github.com/cardholder-name/quick-normalizer/releases/latest)
 
 A high-performance Windows audio normalization tool with modern **LUFS (Loudness Units relative to Full Scale)** support, perfect for preparing audio for streaming platforms, podcasts, and broadcast.
 
@@ -35,7 +36,26 @@ So your stuff doesn't sound shit.
 - ⚙️ Optimized DSP with lookup tables
 - 📦 Batch processing with wildcard support
 
-## 📁 Format Compatibility
+## � Download
+
+**Don't want to compile? Grab the pre-built executable:**
+
+### [⬇️ Download normalize.exe (Latest Release)](https://github.com/cardholder-name/quick-normalizer/releases/latest)
+
+**Quick setup:**
+1. Download `normalize.exe` from the link above
+2. Put it in a folder (e.g., `C:\Tools\`)
+3. Add to PATH or run directly from that folder
+4. Done! No installation needed, no dependencies
+
+**Or use from anywhere:**
+```powershell
+# Add to PATH (run PowerShell as Administrator)
+$env:Path += ";C:\Tools"
+[Environment]::SetEnvironmentVariable("Path", $env:Path, "Machine")
+```
+
+## �📁 Format Compatibility
 
 ### Supported Formats
 - **PCM WAV files** (uncompressed audio)
@@ -51,7 +71,13 @@ So your stuff doesn't sound shit.
 
 ## 🚀 Quick Start
 
-### Installation
+### Option 1: Download Pre-Built (Easiest!)
+
+**[⬇️ Download normalize.exe here](https://github.com/cardholder-name/quick-normalizer/releases/latest)**
+
+Just download and run - no compilation needed!
+
+### Option 2: Build from Source
 
 1. **Install Build Tools** (one-time):
    ```powershell
