@@ -50,8 +50,6 @@ A high-performance Windows audio normalization tool with modern **LUFS (Loudness
 
 3. **Done!** You now have `normalize.exe`
 
-📖 See [docs/QUICK_INSTALL.md](docs/QUICK_INSTALL.md) for detailed instructions.
-
 ### Usage Examples
 
 ```batch
@@ -77,18 +75,7 @@ normalize -s 90 -m 100 music.wav
 normalize -L -14 -m 99 -w C:\incoming -O C:\processed
 ```
 
-## 📖 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Quick Install Guide](docs/QUICK_INSTALL.md) | Get up and running in 5 minutes |
-| [Quick Start Guide](docs/QUICKSTART.md) | Common use cases and command reference |
-| [Watch Mode Guide](docs/WATCH_MODE.md) | Automated folder monitoring and processing |
-| [LUFS Implementation](docs/LUFS_IMPLEMENTATION.md) | Technical details of LUFS algorithm |
-| [Compilation Options](docs/COMPILATION_OPTIONS.md) | Alternative compilers and build methods |
-| [Language Choice](docs/LANGUAGE_CHOICE.md) | Why C? Should we use Rust? |
-
-## 🎚️ Command Reference
+## 🎯 LUFS Standards Reference
 
 ### LUFS Normalization
 ```
@@ -130,33 +117,41 @@ normalize -L -14 -m 99 -w C:\incoming -O C:\processed
 | **EBU R128 (TV)** | -23 LUFS | `normalize -L -23 *.wav` |
 | **ATSC (US TV)** | -24 LUFS | `normalize -L -24 *.wav` |
 
-## 🔬 Technical Details
+## 🎚️ Command Reference
 
-### LUFS Algorithm
-- **K-Weighting**: Two-stage biquad filters
-  - High-shelf pre-filter at 1682 Hz (+4 dB)
-  - High-pass RLB filter at 38 Hz
-- **Block Processing**: 400ms blocks with 75% overlap (100ms hop)
-- **Gating**: Absolute gate (-70 LUFS) + Relative gate (-10 LU below average)
-- **Percentile Gating**: Optional smart filtering of loudest blocks
+### LUFS Normalization
+```
+-L <lufs>      Target loudness in LUFS (e.g., -14 for Spotify)
+-g <percent>   Gate percentile: ignore loudest X% of blocks (50-100)
+-m <percent>   Peak limiting: don't exceed X% of maximum
+```
 
-### SmartPeak Algorithm
-- Histogram-based statistical analysis
-- Percentile calculation to identify representative peaks
-- Prevents over-normalization from brief transients
+### Peak Normalization
+```
+-m <percent>   Normalize to X% of maximum (default 100)
+-s <percent>   SmartPeak: use percentile for peak detection (50-100)
+-a <level>     Amplify by exact dB amount
+-l <ratio>     Linear gain multiplication
+```
 
-### Performance
-- Direct memory access for optimal speed
-- Lookup tables for amplification
-- Efficient Windows VirtualAlloc for large buffers
-- Single-pass for LUFS, two-pass for peak analysis
+### Other Options
+```
+-w <folder>    Watch folder mode: process files automatically
+-O <folder>    Output folder for watch mode (required with -w)
+-b <size>      I/O buffer size in KB (16-16384, default 64)
+-o <file>      Output to file instead of overwriting
+-p             Prompt before normalization
+-q             Quiet mode (no output)
+-d             Don't abort batch on skip
+-x <level>     Skip if gain is less than X dB
+-h             Show help
+```
 
 ## 🏗️ Building from Source
 
 ### Prerequisites
 - Windows 10/11
 - Visual Studio 2019/2022 Build Tools or full Visual Studio
-- Or: MinGW-w64, Clang/LLVM (see [docs/COMPILATION_OPTIONS.md](docs/COMPILATION_OPTIONS.md))
 
 ### Build Commands
 
@@ -173,28 +168,6 @@ cl /W3 /O2 /Fenormalize.exe normalize.c PCMWAV.C kernel32.lib
 **Alternative (build.bat):**
 ```batch
 build.bat
-```
-
-## 📁 Project Structure
-
-```
-normalize-src/
-├── normalize.c              # Main application (1,600+ lines with watch mode)
-├── PCMWAV.C/PCMWAV.H       # WAV file I/O library
-├── build-msvc.bat          # Recommended build script
-├── build.bat               # Alternative build script
-├── .gitignore              # Git ignore rules
-├── COPYING.txt             # GPL v2 license
-├── README.md               # This file
-├── .github/
-│   └── copilot-instructions.md  # AI assistant guidance
-└── docs/
-    ├── QUICK_INSTALL.md         # Installation guide
-    ├── QUICKSTART.md            # Usage guide
-    ├── WATCH_MODE.md            # Watch folder automation guide
-    ├── LUFS_IMPLEMENTATION.md   # Technical details
-    ├── COMPILATION_OPTIONS.md   # Build alternatives
-    └── LANGUAGE_CHOICE.md       # Language comparison
 ```
 
 ## 🤝 Contributing
@@ -233,9 +206,8 @@ See [COPYING.txt](COPYING.txt) for full license text.
 
 ## 📞 Support
 
-- **Issues**: Use GitHub Issues for bug reports
-- **Documentation**: See `/docs` folder
-- **Questions**: Check existing issues or create a new one
+- **Issues**: [GitHub Issues](https://github.com/cardholder-name/quick-normalizer/issues) for bug reports and feature requests
+- **Documentation**: Technical details available in `/docs` folder
 
 ---
 
