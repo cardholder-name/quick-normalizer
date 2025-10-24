@@ -48,6 +48,7 @@ desktop.ini
 .vscode/
 .idea/
 *.sublime-*
+*.code-workspace
 
 # Test files and folders (for development testing)
 test-*.wav
